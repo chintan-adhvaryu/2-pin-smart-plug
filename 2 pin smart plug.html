@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid Smart Plug Pro</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; width: 100%; max-width: 400px; border-radius: 20px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .status { padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-weight: bold; font-size: 0.9rem; }
+        .offline { background: #eee; color: #666; }
+        .online { background: #d4edda; color: #155724; }
+        .row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+        .switch { position: relative; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 26px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #007bff; }
+        input:checked + .slider:before { transform: translateX(24px); }
+        button, select, input { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
+        .mode-selector { background: #e9ecef; padding: 15px; border-radius: 12px; margin: 15px 0; border: 2px solid #007bff; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div id="btStatus" class="status offline">1. Bluetooth: Disconnected</div>
+        <button id="btnConnect" onclick="connectBLE()" style="background:#007bff; color:white; border:none; cursor:pointer;">Connect Bluetooth</button>
+        
+        <div id="mainUI" style="display:none;">
+            <div id="wifiStatus" class="status offline">WiFi: Not Configured</div>
+            <div id="provisioning">
+                <button onclick="scanWiFi()">Scan Wi-Fi</button>
+                <select id="wifiList"><option>Select Network...</option></select>
+                <input type="password" id="wifiPass" placeholder="Password">
+                <button onclick="sendWiFi()" style="background:#28a745; color:white; border:none;">Connect Wi-Fi</button>
+            </div>
+
+            <div id="modeToggle" class="mode-selector" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>Mode: <span id="modeText">Bluetooth</span></strong>
+                    <label class="switch"><input type="checkbox" id="modeSwitch" onchange="toggleMode()"><span class="slider"></span></label>
+                </div>
+                <small id="modeHint">Local control (Fast)</small>
+            </div>
+
+            <div class="row"><strong>Relay 1</strong><label class="switch"><input type="checkbox" onchange="unifiedControl(1, this.checked)"><span class="slider"></span></label></div>
+            <div class="row"><strong>Relay 2</strong><label class="switch"><input type="checkbox" onchange="unifiedControl(2, this.checked)"><span class="slider"></span></label></div>
+            <div class="row"><span>Remember R1 State</span><label class="switch"><input type="checkbox" onchange="sendBT('M1', this.checked)"><span class="slider"></span></label></div>
+            <div class="row"><span>Remember R2 State</span><label class="switch"><input type="checkbox" onchange="sendBT('M2', this.checked)"><span class="slider"></span></label></div>
+            
+            <button onclick="sendBT('ALL', false); location.reload();" style="background:#dc3545; color:white; border:none; margin-top:20px; font-weight:bold;">EMERGENCY ALL OFF</button>
+        </div>
+    </div>
+
+    <script>
+        const sUUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b", cUUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        const scanUUID = "8c25f540-3b6b-42fa-811c-6bd79fceab3d", statUUID = "1c95d5e3-d03b-4c77-92cf-2274693d902e";
+        const blynkToken = "UjPHfGcf9kO9fiyV3THlLGqcvkQzzuM4";
+        let char;
+
+        async function connectBLE() {
+            try {
+                const dev = await navigator.bluetooth.requestDevice({ filters: [{ name: 'ESP32_Smart_Plug' }], optionalServices: [sUUID] });
+                const gatt = await dev.gatt.connect();
+                const svc = await gatt.getPrimaryService(sUUID);
+                char = await svc.getCharacteristic(cUUID);
+                document.getElementById('btStatus').innerText = "Smart plug connected to bluetooth";
+                document.getElementById('btStatus').className = "status online";
+                document.getElementById('btnConnect').style.display = "none";
+                document.getElementById('mainUI').style.display = "block";
+
+                const scn = await svc.getCharacteristic(scanUUID);
+                await scn.startNotifications();
+                scn.addEventListener('characteristicvaluechanged', (e) => {
+                    let val = new TextDecoder().decode(e.target.value);
+                    if (val !== "SCAN_DONE") {
+                        let sel = document.getElementById('wifiList');
+                        let opt = document.createElement("option"); opt.text = val; opt.value = val; sel.add(opt);
+                    }
+                });
+
+                const st = await svc.getCharacteristic(statUUID);
+                await st.startNotifications();
+                st.addEventListener('characteristicvaluechanged', (e) => {
+                    let msg = new TextDecoder().decode(e.target.value);
+                    if (msg.startsWith("CONNECTED:")) {
+                        document.getElementById('wifiStatus').innerText = "Smart plug connected to " + msg.split(":")[1];
+                        document.getElementById('wifiStatus').className = "status online";
+                        document.getElementById('modeToggle').style.display = "block";
+                        document.getElementById('provisioning').style.display = "none";
+                    }
+                });
+            } catch (e) { console.log(e); }
+        }
+
+        function toggleMode() {
+            let online = document.getElementById('modeSwitch').checked;
+            document.getElementById('modeText').innerText = online ? "Online" : "Bluetooth";
+            document.getElementById('modeHint').innerText = online ? "Cloud control (Global)" : "Local control (Fast)";
+        }
+
+        async function unifiedControl(relay, state) {
+            let online = document.getElementById('modeSwitch').checked;
+            if (online) {
+                // Control via Blynk Cloud API
+                fetch(`https://blynk.cloud/external/api/update?token=${blynkToken}&v${relay}=${state ? 1 : 0}`);
+            } else {
+                // Control via Bluetooth
+                if (char) await char.writeValue(new TextEncoder().encode(`R${relay}:${state ? "1" : "0"}`));
+            }
+        }
+
+        async function sendBT(cmd, state) {
+            if (char) await char.writeValue(new TextEncoder().encode(cmd + ":" + (state ? "1" : "0")));
+        }
+
+        async function scanWiFi() { if (char) await char.writeValue(new TextEncoder().encode("SCAN")); }
+        async function sendWiFi() {
+            let ssid = document.getElementById('wifiList').value;
+            let pass = document.getElementById('wifiPass').value;
+            if (char) await char.writeValue(new TextEncoder().encode("WIFI:" + ssid + "\n" + pass));
+        }
+    </script>
+</body>
+</html>
