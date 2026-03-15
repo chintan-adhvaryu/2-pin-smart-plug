@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Plug Pro Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f7f6; padding: 15px; margin: 0; }
+        .dashboard { max-width: 450px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #3498db; }
+        .status-indicator { padding: 12px; border-radius: 30px; color: white; font-weight: bold; margin-bottom: 15px; transition: 0.3s; font-size: 14px; }
+        .on-state { background: #2ecc71; box-shadow: 0 0 10px rgba(46, 204, 113, 0.4); }
+        .off-state { background: #95a5a6; }
+        
+        .manual-btns { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .btn { flex: 1; padding: 12px; margin: 5px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-on { background: #27ae60; }
+        .btn-off { background: #e74c3c; }
+        .btn:active { transform: scale(0.95); }
+
+        .timer-zone { background: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px dashed #bdc3c7; }
+        .timer-zone input { width: 70px; padding: 8px; border-radius: 5px; border: 1px solid #ccc; text-align: center; font-size: 16px; }
+        .timer-label { font-size: 12px; color: #d35400; font-weight: bold; display: block; margin-top: 10px; min-height: 15px; }
+        
+        h2 { margin-top: 0; color: #2c3e50; font-size: 20px; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
+    </style>
+</head>
+<body onload="syncStatus()">
+
+<div class="dashboard">
+    <h1>My Smart Plug</h1>
+
+    <div class="card">
+        <h2>Device 1</h2>
+        <div id="indV1" class="status-indicator off-state">STATUS: OFFLINE</div>
+        
+        <div class="manual-btns">
+            <button class="btn btn-on" onclick="manualCmd('v1', 1)">TURN ON</button>
+            <button class="btn btn-off" onclick="manualCmd('v1', 0)">TURN OFF</button>
+        </div>
+
+        <div class="timer-zone">
+            <strong>Delayed Task</strong><br>
+            In <input type="number" id="valV1" value="1"> min: 
+            <button class="btn btn-on" style="padding: 8px; font-size: 12px;" onclick="setTimer('v1', 1)">Set ON</button>
+            <button class="btn btn-off" style="padding: 8px; font-size: 12px;" onclick="setTimer('v1', 0)">Set OFF</button>
+            <span id="msgV1" class="timer-label"></span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Device 2</h2>
+        <div id="indV2" class="status-indicator off-state">STATUS: OFFLINE</div>
+        
+        <div class="manual-btns">
+            <button class="btn btn-on" onclick="manualCmd('v2', 1)">TURN ON</button>
+            <button class="btn btn-off" onclick="manualCmd('v2', 0)">TURN OFF</button>
+        </div>
+
+        <div class="timer-zone">
+            <strong>Delayed Task</strong><br>
+            In <input type="number" id="valV2" value="1"> min: 
+            <button class="btn btn-on" style="padding: 8px; font-size: 12px;" onclick="setTimer('v2', 1)">Set ON</button>
+            <button class="btn btn-off" style="padding: 8px; font-size: 12px;" onclick="setTimer('v2', 0)">Set OFF</button>
+            <span id="msgV2" class="timer-label"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = "UjPHfGcf9kO9fiyV3THlLGqcvkQzzuM4";
+    let timers = {};
+
+    // 1. Fetch live status from Blynk Cloud
+    async function syncStatus() {
+        ['v1', 'v2'].forEach(pin => {
+            fetch(`https://blynk.cloud/external/api/get?token=${token}&${pin}`)
+                .then(r => r.text())
+                .then(val => {
+                    const ind = document.getElementById('ind' + pin.toUpperCase());
+                    const isOn = (val == "1");
+                    ind.innerText = `CURRENTLY: ${isOn ? 'ON' : 'OFF'}`;
+                    ind.className = `status-indicator ${isOn ? 'on-state' : 'off-state'}`;
+                });
+        });
+    }
+
+    // 2. Manual Toggle Logic
+    function manualCmd(pin, val) {
+        // If a manual button is pressed, cancel any pending timers for that pin
+        if(timers[pin]) {
+            clearTimeout(timers[pin]);
+            document.getElementById('msg' + pin.toUpperCase()).innerText = "";
+        }
+        
+        fetch(`https://blynk.cloud/external/api/update?token=${token}&${pin}=${val}`)
+            .then(() => setTimeout(syncStatus, 800));
+    }
+
+    // 3. Timer Logic
+    function setTimer(pin, target) {
+        const mins = document.getElementById('val' + pin.toUpperCase()).value;
+        const msg = document.getElementById('msg' + pin.toUpperCase());
+        const action = target == 1 ? "ON" : "OFF";
+
+        if(timers[pin]) clearTimeout(timers[pin]);
+
+        msg.innerText = `Scheduled: ${action} in ${mins} min...`;
+
+        timers[pin] = setTimeout(() => {
+            manualCmd(pin, target);
+            msg.innerText = `Done! Sent ${action} command.`;
+            setTimeout(() => { msg.innerText = ""; }, 5000);
+        }, mins * 60000);
+    }
+
+    // Auto-sync every 10 seconds in case someone else toggles the switch
+    setInterval(syncStatus, 10000);
+</script>
+
+</body>
+</html>
