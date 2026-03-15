@@ -2,123 +2,121 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Smart Plug Pro</title>
+    <title>Smart Plug Pro Dashboard</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
-        .card { background: white; width: 100%; max-width: 400px; border-radius: 20px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .status { padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-weight: bold; font-size: 0.9rem; }
-        .offline { background: #eee; color: #666; }
-        .online { background: #d4edda; color: #155724; }
-        .row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
-        .switch { position: relative; width: 50px; height: 26px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 26px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #007bff; }
-        input:checked + .slider:before { transform: translateX(24px); }
-        button, select, input { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
-        .mode-selector { background: #e9ecef; padding: 15px; border-radius: 12px; margin: 15px 0; border: 2px solid #007bff; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f7f6; padding: 15px; margin: 0; }
+        .dashboard { max-width: 450px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #3498db; }
+        .status-indicator { padding: 12px; border-radius: 30px; color: white; font-weight: bold; margin-bottom: 15px; transition: 0.3s; font-size: 14px; }
+        .on-state { background: #2ecc71; box-shadow: 0 0 10px rgba(46, 204, 113, 0.4); }
+        .off-state { background: #95a5a6; }
+        
+        .manual-btns { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .btn { flex: 1; padding: 12px; margin: 5px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-on { background: #27ae60; }
+        .btn-off { background: #e74c3c; }
+        .btn:active { transform: scale(0.95); }
+
+        .timer-zone { background: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px dashed #bdc3c7; }
+        .timer-zone input { width: 70px; padding: 8px; border-radius: 5px; border: 1px solid #ccc; text-align: center; font-size: 16px; }
+        .timer-label { font-size: 12px; color: #d35400; font-weight: bold; display: block; margin-top: 10px; min-height: 15px; }
+        
+        h2 { margin-top: 0; color: #2c3e50; font-size: 20px; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
     </style>
 </head>
-<body>
+<body onload="syncStatus()">
+
+<div class="dashboard">
+    <h1>My Smart Plug</h1>
+
     <div class="card">
-        <div id="btStatus" class="status offline">1. Bluetooth: Disconnected</div>
-        <button id="btnConnect" onclick="connectBLE()" style="background:#007bff; color:white; border:none; cursor:pointer;">Connect Bluetooth</button>
+        <h2>Device 1</h2>
+        <div id="indV1" class="status-indicator off-state">STATUS: OFFLINE</div>
         
-        <div id="mainUI" style="display:none;">
-            <div id="wifiStatus" class="status offline">WiFi: Not Configured</div>
-            <div id="provisioning">
-                <button onclick="scanWiFi()">Scan Wi-Fi</button>
-                <select id="wifiList"><option>Select Network...</option></select>
-                <input type="password" id="wifiPass" placeholder="Password">
-                <button onclick="sendWiFi()" style="background:#28a745; color:white; border:none;">Connect Wi-Fi</button>
-            </div>
+        <div class="manual-btns">
+            <button class="btn btn-on" onclick="manualCmd('v1', 1)">TURN ON</button>
+            <button class="btn btn-off" onclick="manualCmd('v1', 0)">TURN OFF</button>
+        </div>
 
-            <div id="modeToggle" class="mode-selector" style="display:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <strong>Mode: <span id="modeText">Bluetooth</span></strong>
-                    <label class="switch"><input type="checkbox" id="modeSwitch" onchange="toggleMode()"><span class="slider"></span></label>
-                </div>
-                <small id="modeHint">Local control (Fast)</small>
-            </div>
-
-            <div class="row"><strong>Relay 1</strong><label class="switch"><input type="checkbox" onchange="unifiedControl(1, this.checked)"><span class="slider"></span></label></div>
-            <div class="row"><strong>Relay 2</strong><label class="switch"><input type="checkbox" onchange="unifiedControl(2, this.checked)"><span class="slider"></span></label></div>
-            <div class="row"><span>Remember R1 State</span><label class="switch"><input type="checkbox" onchange="sendBT('M1', this.checked)"><span class="slider"></span></label></div>
-            <div class="row"><span>Remember R2 State</span><label class="switch"><input type="checkbox" onchange="sendBT('M2', this.checked)"><span class="slider"></span></label></div>
-            
-            <button onclick="sendBT('ALL', false); location.reload();" style="background:#dc3545; color:white; border:none; margin-top:20px; font-weight:bold;">EMERGENCY ALL OFF</button>
+        <div class="timer-zone">
+            <strong>Delayed Task</strong><br>
+            In <input type="number" id="valV1" value="1"> min: 
+            <button class="btn btn-on" style="padding: 8px; font-size: 12px;" onclick="setTimer('v1', 1)">Set ON</button>
+            <button class="btn btn-off" style="padding: 8px; font-size: 12px;" onclick="setTimer('v1', 0)">Set OFF</button>
+            <span id="msgV1" class="timer-label"></span>
         </div>
     </div>
 
-    <script>
-        const sUUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b", cUUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-        const scanUUID = "8c25f540-3b6b-42fa-811c-6bd79fceab3d", statUUID = "1c95d5e3-d03b-4c77-92cf-2274693d902e";
-        const blynkToken = "UjPHfGcf9kO9fiyV3THlLGqcvkQzzuM4";
-        let char;
+    <div class="card">
+        <h2>Device 2</h2>
+        <div id="indV2" class="status-indicator off-state">STATUS: OFFLINE</div>
+        
+        <div class="manual-btns">
+            <button class="btn btn-on" onclick="manualCmd('v2', 1)">TURN ON</button>
+            <button class="btn btn-off" onclick="manualCmd('v2', 0)">TURN OFF</button>
+        </div>
 
-        async function connectBLE() {
-            try {
-                const dev = await navigator.bluetooth.requestDevice({ filters: [{ name: 'ESP32_Smart_Plug' }], optionalServices: [sUUID] });
-                const gatt = await dev.gatt.connect();
-                const svc = await gatt.getPrimaryService(sUUID);
-                char = await svc.getCharacteristic(cUUID);
-                document.getElementById('btStatus').innerText = "Smart plug connected to bluetooth";
-                document.getElementById('btStatus').className = "status online";
-                document.getElementById('btnConnect').style.display = "none";
-                document.getElementById('mainUI').style.display = "block";
+        <div class="timer-zone">
+            <strong>Delayed Task</strong><br>
+            In <input type="number" id="valV2" value="1"> min: 
+            <button class="btn btn-on" style="padding: 8px; font-size: 12px;" onclick="setTimer('v2', 1)">Set ON</button>
+            <button class="btn btn-off" style="padding: 8px; font-size: 12px;" onclick="setTimer('v2', 0)">Set OFF</button>
+            <span id="msgV2" class="timer-label"></span>
+        </div>
+    </div>
+</div>
 
-                const scn = await svc.getCharacteristic(scanUUID);
-                await scn.startNotifications();
-                scn.addEventListener('characteristicvaluechanged', (e) => {
-                    let val = new TextDecoder().decode(e.target.value);
-                    if (val !== "SCAN_DONE") {
-                        let sel = document.getElementById('wifiList');
-                        let opt = document.createElement("option"); opt.text = val; opt.value = val; sel.add(opt);
-                    }
+<script>
+    const token = "UjPHfGcf9kO9fiyV3THlLGqcvkQzzuM4";
+    let timers = {};
+
+    // 1. Fetch live status from Blynk Cloud
+    async function syncStatus() {
+        ['v1', 'v2'].forEach(pin => {
+            fetch(`https://blynk.cloud/external/api/get?token=${token}&${pin}`)
+                .then(r => r.text())
+                .then(val => {
+                    const ind = document.getElementById('ind' + pin.toUpperCase());
+                    const isOn = (val == "1");
+                    ind.innerText = `CURRENTLY: ${isOn ? 'ON' : 'OFF'}`;
+                    ind.className = `status-indicator ${isOn ? 'on-state' : 'off-state'}`;
                 });
+        });
+    }
 
-                const st = await svc.getCharacteristic(statUUID);
-                await st.startNotifications();
-                st.addEventListener('characteristicvaluechanged', (e) => {
-                    let msg = new TextDecoder().decode(e.target.value);
-                    if (msg.startsWith("CONNECTED:")) {
-                        document.getElementById('wifiStatus').innerText = "Smart plug connected to " + msg.split(":")[1];
-                        document.getElementById('wifiStatus').className = "status online";
-                        document.getElementById('modeToggle').style.display = "block";
-                        document.getElementById('provisioning').style.display = "none";
-                    }
-                });
-            } catch (e) { console.log(e); }
+    // 2. Manual Toggle Logic
+    function manualCmd(pin, val) {
+        // If a manual button is pressed, cancel any pending timers for that pin
+        if(timers[pin]) {
+            clearTimeout(timers[pin]);
+            document.getElementById('msg' + pin.toUpperCase()).innerText = "";
         }
+        
+        fetch(`https://blynk.cloud/external/api/update?token=${token}&${pin}=${val}`)
+            .then(() => setTimeout(syncStatus, 800));
+    }
 
-        function toggleMode() {
-            let online = document.getElementById('modeSwitch').checked;
-            document.getElementById('modeText').innerText = online ? "Online" : "Bluetooth";
-            document.getElementById('modeHint').innerText = online ? "Cloud control (Global)" : "Local control (Fast)";
-        }
+    // 3. Timer Logic
+    function setTimer(pin, target) {
+        const mins = document.getElementById('val' + pin.toUpperCase()).value;
+        const msg = document.getElementById('msg' + pin.toUpperCase());
+        const action = target == 1 ? "ON" : "OFF";
 
-        async function unifiedControl(relay, state) {
-            let online = document.getElementById('modeSwitch').checked;
-            if (online) {
-                // Control via Blynk Cloud API
-                fetch(`https://blynk.cloud/external/api/update?token=${blynkToken}&v${relay}=${state ? 1 : 0}`);
-            } else {
-                // Control via Bluetooth
-                if (char) await char.writeValue(new TextEncoder().encode(`R${relay}:${state ? "1" : "0"}`));
-            }
-        }
+        if(timers[pin]) clearTimeout(timers[pin]);
 
-        async function sendBT(cmd, state) {
-            if (char) await char.writeValue(new TextEncoder().encode(cmd + ":" + (state ? "1" : "0")));
-        }
+        msg.innerText = `Scheduled: ${action} in ${mins} min...`;
 
-        async function scanWiFi() { if (char) await char.writeValue(new TextEncoder().encode("SCAN")); }
-        async function sendWiFi() {
-            let ssid = document.getElementById('wifiList').value;
-            let pass = document.getElementById('wifiPass').value;
-            if (char) await char.writeValue(new TextEncoder().encode("WIFI:" + ssid + "\n" + pass));
-        }
-    </script>
+        timers[pin] = setTimeout(() => {
+            manualCmd(pin, target);
+            msg.innerText = `Done! Sent ${action} command.`;
+            setTimeout(() => { msg.innerText = ""; }, 5000);
+        }, mins * 60000);
+    }
+
+    // Auto-sync every 10 seconds in case someone else toggles the switch
+    setInterval(syncStatus, 10000);
+</script>
+
 </body>
 </html>
