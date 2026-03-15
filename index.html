@@ -1,8 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart Plug Pro Dashboard</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#3498db">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2987/2987998.png">
+
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f7f6; padding: 15px; margin: 0; }
         .dashboard { max-width: 450px; margin: auto; }
@@ -28,7 +38,7 @@
 <body onload="syncStatus()">
 
 <div class="dashboard">
-    <h1>My Smart Plug</h1>
+    <h1 style="padding: 10px 0;">My Smart Plug</h1>
 
     <div class="card">
         <h2>Device 1</h2>
@@ -71,7 +81,6 @@
     const token = "UjPHfGcf9kO9fiyV3THlLGqcvkQzzuM4";
     let timers = {};
 
-    // 1. Fetch live status from Blynk Cloud
     async function syncStatus() {
         ['v1', 'v2'].forEach(pin => {
             fetch(`https://blynk.cloud/external/api/get?token=${token}&${pin}`)
@@ -85,9 +94,7 @@
         });
     }
 
-    // 2. Manual Toggle Logic
     function manualCmd(pin, val) {
-        // If a manual button is pressed, cancel any pending timers for that pin
         if(timers[pin]) {
             clearTimeout(timers[pin]);
             document.getElementById('msg' + pin.toUpperCase()).innerText = "";
@@ -97,7 +104,6 @@
             .then(() => setTimeout(syncStatus, 800));
     }
 
-    // 3. Timer Logic
     function setTimer(pin, target) {
         const mins = document.getElementById('val' + pin.toUpperCase()).value;
         const msg = document.getElementById('msg' + pin.toUpperCase());
@@ -114,7 +120,6 @@
         }, mins * 60000);
     }
 
-    // Auto-sync every 10 seconds in case someone else toggles the switch
     setInterval(syncStatus, 10000);
 </script>
 
