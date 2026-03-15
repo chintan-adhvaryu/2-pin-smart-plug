@@ -1,0 +1,15 @@
+{
+  "short_name": "SmartPlug",
+  "name": "Smart Plug Pro Dashboard",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2987/2987998.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/2-pin-smart-plug/",
+  "background_color": "#f4f7f6",
+  "display": "standalone",
+  "theme_color": "#3498db"
+}
