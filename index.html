@@ -1,126 +1,340 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Plug Pro Dashboard</title>
+	<link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
     
-    <link rel="manifest" href="manifest.json">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#3498db">
-    
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2987/2987998.png">
-
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker registered!'))
+            .catch(err => console.error('Service Worker registration failed: ', err));
+        });
+      }
+    </script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f7f6; padding: 15px; margin: 0; }
-        .dashboard { max-width: 450px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #3498db; }
-        .status-indicator { padding: 12px; border-radius: 30px; color: white; font-weight: bold; margin-bottom: 15px; transition: 0.3s; font-size: 14px; }
-        .on-state { background: #2ecc71; box-shadow: 0 0 10px rgba(46, 204, 113, 0.4); }
-        .off-state { background: #95a5a6; }
-        
-        .manual-btns { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .btn { flex: 1; padding: 12px; margin: 5px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-on { background: #27ae60; }
-        .btn-off { background: #e74c3c; }
-        .btn:active { transform: scale(0.95); }
-
-        .timer-zone { background: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px dashed #bdc3c7; }
-        .timer-zone input { width: 70px; padding: 8px; border-radius: 5px; border: 1px solid #ccc; text-align: center; font-size: 16px; }
-        .timer-label { font-size: 12px; color: #d35400; font-weight: bold; display: block; margin-top: 10px; min-height: 15px; }
-        
-        h2 { margin-top: 0; color: #2c3e50; font-size: 20px; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; color: #333; display: flex; flex-direction: column; 	align-items: center; padding: 20px; }
+        .container { max-width: 500px; width: 100%; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }
+        h1 { font-size: 22px; text-align: center; margin-bottom: 5px; }
+        .status-bar { background: #e9ecef; padding: 12px; border-radius: 8px; text-align: center; font-weight: 600; margin-bottom: 20px; font-size: 14px; }
+        .text-blue { color: #0056b3; }
+        .text-green { color: #28a745; }
+        .text-red { color: #dc3545; }
+        .text-orange { color: #fd7e14; }
+        .tab-container { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 10px; border: 1px solid #ccc; background: #f8f9fa; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: #007bff; color: white; border-color: #007bff; }
+        .panel { display: none; padding: 15px; border: 1px solid #eee; border-radius: 8px; background: #fafafa; margin-bottom: 20px; }
+        .panel.active { display: block; }
+        input, select { width: 100%; padding: 10px; margin: 8px 0 15px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; background: #28a745; }
+        .btn:disabled { background: #6c757d; cursor: not-allowed; }
+        .btn-blue { background: #007bff; }
+        .btn-red { background: #dc3545; margin-top: 10px; }
+        .btn-secondary { background: #6c757d; margin-bottom: 10px;}
+        .plug-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #fff; }
+        .plug-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; }
+        .toggle-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .toggle-btn { flex: 1; padding: 10px; border: 2px solid transparent; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-on { background: #e8f5e9; color: #2e7d32; }
+        .btn-off { background: #ffebee; color: #c62828; }
+        .timer-area { background: #f1f3f5; padding: 10px; border-radius: 6px; display: flex; align-items: center; gap: 10px; }
+        .timer-area input { margin: 0; width: 60px; }
+        .hidden { display: none !important; }
     </style>
 </head>
-<body onload="syncStatus()">
+<body>
 
-<div class="dashboard">
-    <h1 style="padding: 10px 0;">My Smart Plug</h1>
-
-    <div class="card">
-        <h2>Device 1</h2>
-        <div id="indV1" class="status-indicator off-state">STATUS: OFFLINE</div>
-        
-        <div class="manual-btns">
-            <button class="btn btn-on" onclick="manualCmd('v1', 1)">TURN ON</button>
-            <button class="btn btn-off" onclick="manualCmd('v1', 0)">TURN OFF</button>
-        </div>
-
-        <div class="timer-zone">
-            <strong>Delayed Task</strong><br>
-            In <input type="number" id="valV1" value="1"> min: 
-            <button class="btn btn-on" style="padding: 8px; font-size: 12px;" onclick="setTimer('v1', 1)">Set ON</button>
-            <button class="btn btn-off" style="padding: 8px; font-size: 12px;" onclick="setTimer('v1', 0)">Set OFF</button>
-            <span id="msgV1" class="timer-label"></span>
-        </div>
+<div class="container">
+    <h1>Smart Plug Pro</h1>
+    
+    <div id="statusBar" class="status-bar">
+        <span id="statusText" class="text-orange">Checking Connection Status...</span>
     </div>
 
-    <div class="card">
-        <h2>Device 2</h2>
-        <div id="indV2" class="status-indicator off-state">STATUS: OFFLINE</div>
-        
-        <div class="manual-btns">
-            <button class="btn btn-on" onclick="manualCmd('v2', 1)">TURN ON</button>
-            <button class="btn btn-off" onclick="manualCmd('v2', 0)">TURN OFF</button>
+    <div class="tab-container" id="tabs">
+        <button id="tabControls" class="tab-btn hidden" onclick="switchTab('controls')">Controls</button>
+        <button id="tabBle" class="tab-btn active" onclick="switchTab('ble')">Bluetooth</button>
+        <button id="tabWifi" class="tab-btn" onclick="switchTab('wifi')">Setup Wi-Fi</button>
+    </div>
+
+    <div id="panelBle" class="panel active">
+        <p style="font-size: 14px; text-align: center;">Device is offline or local. Pair via Bluetooth to access controls and setup.</p>
+        <button id="connectBleBtn" class="btn btn-blue">Pair via Bluetooth</button>
+    </div>
+
+    <div id="panelWifi" class="panel">
+        <div id="wifiSetupArea">
+            <label>Available Networks:</label>
+            <button id="scanBtn" class="btn btn-secondary" onclick="scanNetworks()" disabled>Scan for Wi-Fi</button>
+            <select id="wifiList">
+                <option value="">-- Click Scan to find networks --</option>
+            </select>
+            
+            <label>Or type SSID manually:</label>
+            <input type="text" id="ssidInput" placeholder="Network Name">
+            
+            <label>Password:</label>
+            <input type="password" id="passInput" placeholder="Password">
+            
+            <button id="sendWifiBtn" class="btn" disabled>Send to ESP32</button>
+        </div>
+        <button id="disconnectWifiBtn" class="btn btn-red hidden" onclick="disconnectWifi()">Disconnect Wi-Fi</button>
+    </div>
+
+    <div id="panelControls" class="panel hidden">
+        <div class="plug-card">
+            <div class="plug-header">Socket 1 <span>(Relay 1)</span></div>
+            <div class="toggle-group">
+                <button class="toggle-btn btn-on" onclick="sendCommand('1ON')">Turn ON</button>
+                <button class="toggle-btn btn-off" onclick="sendCommand('1OFF')">Turn OFF</button>
+            </div>
+            <div class="timer-area">
+                <span>Timer:</span>
+                <input type="number" id="timerValue1" min="1" placeholder="Mins">
+                <select id="timerAction1">
+                    <option value="1ON">Turn ON</option>
+                    <option value="1OFF">Turn OFF</option>
+                </select>
+                <button class="btn btn-blue" style="padding: 10px;" onclick="setTimer(1)">Set</button>
+            </div>
+            <div id="timerDisplay1" style="font-size: 12px; color: #0056b3; margin-top: 5px;"></div>
         </div>
 
-        <div class="timer-zone">
-            <strong>Delayed Task</strong><br>
-            In <input type="number" id="valV2" value="1"> min: 
-            <button class="btn btn-on" style="padding: 8px; font-size: 12px;" onclick="setTimer('v2', 1)">Set ON</button>
-            <button class="btn btn-off" style="padding: 8px; font-size: 12px;" onclick="setTimer('v2', 0)">Set OFF</button>
-            <span id="msgV2" class="timer-label"></span>
+        <div class="plug-card">
+            <div class="plug-header">Socket 2 <span>(Relay 2)</span></div>
+            <div class="toggle-group">
+                <button class="toggle-btn btn-on" onclick="sendCommand('2ON')">Turn ON</button>
+                <button class="toggle-btn btn-off" onclick="sendCommand('2OFF')">Turn OFF</button>
+            </div>
+            <div class="timer-area">
+                <span>Timer:</span>
+                <input type="number" id="timerValue2" min="1" placeholder="Mins">
+                <select id="timerAction2">
+                    <option value="2ON">Turn ON</option>
+                    <option value="2OFF">Turn OFF</option>
+                </select>
+                <button class="btn btn-blue" style="padding: 10px;" onclick="setTimer(2)">Set</button>
+            </div>
+            <div id="timerDisplay2" style="font-size: 12px; color: #0056b3; margin-top: 5px;"></div>
         </div>
     </div>
 </div>
 
 <script>
-    const token = "UjPHfGcf9kO9fiyV3THlLGqcvkQzzuM4";
-    let timers = {};
+    // System Constants
+    const BLYNK_TOKEN = "UjPHfGcf9kO9fiyV3THlLGqcvkQzzuM4";
+    const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+    const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+    
+    let bleDevice = null;
+    let bleCharacteristic = null;
+    let connectionMode = "NONE"; // Will be "CLOUD" or "BLE"
 
-    async function syncStatus() {
-        ['v1', 'v2'].forEach(pin => {
-            fetch(`https://blynk.cloud/external/api/get?token=${token}&${pin}`)
-                .then(r => r.text())
-                .then(val => {
-                    const ind = document.getElementById('ind' + pin.toUpperCase());
-                    const isOn = (val == "1");
-                    ind.innerText = `CURRENTLY: ${isOn ? 'ON' : 'OFF'}`;
-                    ind.className = `status-indicator ${isOn ? 'on-state' : 'off-state'}`;
-                });
-        });
-    }
-
-    function manualCmd(pin, val) {
-        if(timers[pin]) {
-            clearTimeout(timers[pin]);
-            document.getElementById('msg' + pin.toUpperCase()).innerText = "";
+    // --- Boot Sequence: Check Cloud Status Instantly ---
+    window.onload = async () => {
+        try {
+            // Ping Blynk to see if ESP32 is already connected to home Wi-Fi
+            let res = await fetch(`https://blynk.cloud/external/api/isHardwareConnected?token=${BLYNK_TOKEN}`);
+            let isOnline = await res.text();
+            
+            if (isOnline === "true") {
+                connectionMode = "CLOUD";
+                document.getElementById('statusText').innerText = "Online (Connected via Wi-Fi)";
+                document.getElementById('statusText').className = "text-green";
+                
+                // Show controls, activate Controls tab, hide BLE warning
+                document.getElementById('tabControls').classList.remove('hidden');
+                switchTab('controls');
+            } else {
+                // Device is offline, must use BLE
+                document.getElementById('statusText').innerText = "Offline (Connect via Bluetooth)";
+                document.getElementById('statusText').className = "text-red";
+            }
+        } catch (error) {
+            // If phone has no internet, default to BLE
+            document.getElementById('statusText').innerText = "No Internet (Connect via Bluetooth)";
+            document.getElementById('statusText').className = "text-red";
         }
+    };
+
+    // UI Tab Manager
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(panel => {
+            panel.classList.remove('active');
+            panel.classList.add('hidden');
+        });
         
-        fetch(`https://blynk.cloud/external/api/update?token=${token}&${pin}=${val}`)
-            .then(() => setTimeout(syncStatus, 800));
+        if(tab === 'controls') {
+            document.getElementById('tabControls').classList.add('active');
+            document.getElementById('panelControls').classList.add('active');
+            document.getElementById('panelControls').classList.remove('hidden');
+        } else if(tab === 'ble') {
+            document.getElementById('tabBle').classList.add('active');
+            document.getElementById('panelBle').classList.add('active');
+            document.getElementById('panelBle').classList.remove('hidden');
+        } else if(tab === 'wifi') {
+            document.getElementById('tabWifi').classList.add('active');
+            document.getElementById('panelWifi').classList.add('active');
+            document.getElementById('panelWifi').classList.remove('hidden');
+        }
     }
 
-    function setTimer(pin, target) {
-        const mins = document.getElementById('val' + pin.toUpperCase()).value;
-        const msg = document.getElementById('msg' + pin.toUpperCase());
-        const action = target == 1 ? "ON" : "OFF";
+    // Dropdown updates SSID input
+    document.getElementById('wifiList').addEventListener('change', function() {
+        document.getElementById('ssidInput').value = this.value;
+    });
 
-        if(timers[pin]) clearTimeout(timers[pin]);
+    // --- Bluetooth Connection Logic ---
+    document.getElementById('connectBleBtn').addEventListener('click', async () => {
+        try {
+            bleDevice = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'ESP32_SmartPlug' }],
+                optionalServices: [SERVICE_UUID]
+            });
+            const server = await bleDevice.gatt.connect();
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-        msg.innerText = `Scheduled: ${action} in ${mins} min...`;
+            await bleCharacteristic.startNotifications();
+            bleCharacteristic.addEventListener('characteristicvaluechanged', handleIncomingBLEData);
 
-        timers[pin] = setTimeout(() => {
-            manualCmd(pin, target);
-            msg.innerText = `Done! Sent ${action} command.`;
-            setTimeout(() => { msg.innerText = ""; }, 5000);
+            connectionMode = "BLE";
+            
+            // Ask ESP32 for its local IP Address
+            setTimeout(() => { sendCommandBLE('SYS_STATUS'); }, 500);
+
+            document.getElementById('connectBleBtn').innerText = "Bluetooth Connected";
+            document.getElementById('sendWifiBtn').disabled = false;
+            document.getElementById('scanBtn').disabled = false;
+            
+            // Reveal controls tab now that we have a local connection
+            document.getElementById('tabControls').classList.remove('hidden');
+            switchTab('controls');
+            
+        } catch (error) {
+            alert("Bluetooth connection failed: " + error);
+        }
+    });
+
+    // Handle Data coming back from ESP32 over Bluetooth
+    function handleIncomingBLEData(event) {
+        const value = new TextDecoder().decode(event.target.value);
+        const dropdown = document.getElementById('wifiList');
+        
+        if (value.startsWith("IP:")) {
+            const ipAddress = value.substring(3);
+            document.getElementById('statusText').innerText = `Local Wi-Fi Connected: IP ${ipAddress}`;
+            document.getElementById('statusText').className = "text-green";
+            document.getElementById('disconnectWifiBtn').classList.remove('hidden');
+        } 
+        else if (value === "NOWIFI") {
+            document.getElementById('statusText').innerText = "Bluetooth Connected (No Wi-Fi)";
+            document.getElementById('statusText').className = "text-orange";
+        }
+        else if (value === "SCAN:START") {
+            dropdown.innerHTML = '<option value="">Scanning airwaves... Please wait.</option>';
+        } 
+        else if (value.startsWith("NET:")) {
+            const networkName = value.substring(4); 
+            if (!Array.from(dropdown.options).some(opt => opt.value === networkName)) {
+                const option = document.createElement("option");
+                option.text = networkName;
+                option.value = networkName;
+                dropdown.add(option);
+            }
+        } 
+        else if (value === "SCAN:DONE") {
+            if(dropdown.options.length === 1) {
+                dropdown.options[0].text = "No networks found.";
+            } else {
+                dropdown.options[0].text = "-- Select a Network --";
+            }
+        }
+    }
+
+    // --- Master Command Router (Cloud vs BLE) ---
+    async function sendCommand(cmd) {
+        if (connectionMode === "CLOUD") {
+            // Route command through Blynk API
+            try {
+                let pin = cmd.includes("1") ? "V1" : "V2";
+                let val = cmd.includes("ON") ? "1" : "0";
+                await fetch(`https://blynk.cloud/external/api/update?token=${BLYNK_TOKEN}&${pin}=${val}`);
+            } catch (error) {
+                alert("Cloud command failed. Try connecting via Bluetooth.");
+            }
+        } else if (connectionMode === "BLE") {
+            // Route command directly via Bluetooth
+            sendCommandBLE(cmd);
+        } else {
+            alert("Not connected to Device or Cloud.");
+        }
+    }
+
+    // Direct BLE Sender
+    async function sendCommandBLE(cmd) {
+        if (!bleCharacteristic) return;
+        try {
+            const encoder = new TextEncoder();
+            await bleCharacteristic.writeValue(encoder.encode(cmd));
+        } catch (error) {
+            console.error("BLE Send Error:", error);
+        }
+    }
+
+    // --- Wi-Fi Provisioning Logic ---
+    function scanNetworks() {
+        if (!bleCharacteristic) return;
+        document.getElementById('wifiList').innerHTML = '<option value="">Requesting scan...</option>';
+        sendCommandBLE('WIFI_SCAN');
+    }
+
+    function disconnectWifi() {
+        sendCommandBLE('WIFI_DISC');
+        document.getElementById('statusText').innerText = "Bluetooth Connected (Wi-Fi Disconnected)";
+        document.getElementById('statusText').className = "text-orange";
+        document.getElementById('disconnectWifiBtn').classList.add('hidden');
+    }
+
+    document.getElementById('sendWifiBtn').addEventListener('click', () => {
+        const ssid = document.getElementById('ssidInput').value;
+        const pass = document.getElementById('passInput').value;
+        
+        if (!ssid) {
+            alert("Please select or enter a network name.");
+            return;
+        }
+        sendCommandBLE(`WIFI:${ssid}:${pass}`);
+        
+        document.getElementById('statusText').innerText = "Connecting ESP32 to new Wi-Fi...";
+        document.getElementById('statusText').className = "text-blue";
+        
+        // Ask for updated IP status after a few seconds
+        setTimeout(() => { sendCommandBLE('SYS_STATUS'); }, 8000);
+    });
+
+    // --- Timer Logic ---
+    function setTimer(relayNum) {
+        const mins = document.getElementById(`timerValue${relayNum}`).value;
+        const actionCmd = document.getElementById(`timerAction${relayNum}`).value;
+        const display = document.getElementById(`timerDisplay${relayNum}`);
+
+        if (!mins || mins <= 0) return;
+
+        const actionText = actionCmd.includes("ON") ? "ON" : "OFF";
+        display.innerText = `Timer set: Turning ${actionText} in ${mins} minute(s).`;
+
+        setTimeout(() => {
+            sendCommand(actionCmd);
+            display.innerText = `Timer executed: Turned ${actionText}.`;
         }, mins * 60000);
     }
-
-    setInterval(syncStatus, 10000);
 </script>
 
 </body>
