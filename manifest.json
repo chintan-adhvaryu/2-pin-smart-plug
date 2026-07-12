@@ -1,15 +1,21 @@
 {
-  "short_name": "SmartPlug",
-  "name": "Smart Plug Pro Dashboard",
+  "name": "Smart Plug Pro Controller",
+  "short_name": "Smart Plug",
+  "description": "Bluetooth and Wi-Fi Controller for ESP32 Smart Plug",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#007bff",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2987/2987998.png",
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
       "type": "image/png",
       "sizes": "512x512"
     }
-  ],
-  "start_url": "/2-pin-smart-plug/",
-  "background_color": "#f4f7f6",
-  "display": "standalone",
-  "theme_color": "#3498db"
+  ]
 }
